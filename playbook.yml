@@ -1,0 +1,15 @@
+---
+- name: Setup Proxmox Nodes
+  hosts: proxmox
+  become: true
+
+  tasks:
+    - name: Comment out lines in /etc/apt/sources.list.d/{ceph.list,pve-enterprise.list}
+      file:
+        path: /etc/apt/sources.list.d/"{{ item }}"
+        backrefs: yes
+        state: present
+        regexp: '^(.*)$'
+        line: '# \1'
+      with_items:
+        - ceph.list
