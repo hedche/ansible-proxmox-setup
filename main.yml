@@ -1,0 +1,31 @@
+---
+- name: Setup Proxmox Nodes
+  hosts: proxmox
+
+  tasks:
+    - name: Comment out lines in /etc/apt/sources.list.d/{ceph.list,pve-enterprise.list}
+      lineinfile:
+        path: "/etc/apt/sources.list.d/{{ item }}"
+        backrefs: true
+        state: present
+        regexp: '^([^#].*)$'
+        line: '# \1'
+      with_items:
+        - ceph.list
+        - pve-enterprise.list
+      ignore_errors: true
+      when: not enterprise | default(false) | bool
+
+    - name: Apt update and upgrade
+      apt:
+        update_cache: true
+        upgrade: yes
+      when: upgrade | default(true) | bool
+
+    - name: Setup WOL
+      include_tasks: tasks/wol.yml
+      when: wol | default(true) | bool
+    
+    - name: Setup Proxmox for use with Terraform
+      include_tasks: tasks/terraform.yml
+      when: terraform | default(true) | bool

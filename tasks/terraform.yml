@@ -1,0 +1,9 @@
+---
+- name: Install libguestfs-tools
+  apt:
+    name: libguestfs-tools
+    state: present
+
+- name: Download images
+  get_url:
+    url: "{{  }}""

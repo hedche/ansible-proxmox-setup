@@ -1,0 +1,9 @@
+[Unit]
+Description=Enable Wake On LAN
+
+[Service]
+Type=oneshot
+ExecStart = {{ which_ethtool.stdout_lines[0] }} --change eno1 wol g
+
+[Install]
+WantedBy=basic.target

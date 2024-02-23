@@ -1,0 +1,25 @@
+---
+- name: Get path of ethtool
+  command: which ethtool
+  register: which_ethtool
+  when: wol | default(true) | bool
+
+- name: Template over WOL service
+  template:
+    src: wol.service.j2
+    dest: /etc/systemd/system/wol.service
+    owner: root
+    group: root
+    mode: 0644
+  when: wol | default(true) | bool
+
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: true
+  when: wol | default(true) | bool
+
+- name: Enable wol.service
+  service:
+    name: wol
+    enabled: true
+  when: wol | default(true) | bool
