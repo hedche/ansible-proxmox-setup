@@ -4,6 +4,43 @@
     name: libguestfs-tools
     state: present
 
+- name: Extract filename from URL
+  set_fact:
+    image_name: "{{ tf_image | basename }}"
+
 - name: Download images
   get_url:
-    url: "{{  }}""
+    url: "{{ tf_image }}"
+    dest: "/tmp/{{ image_name }}"
+
+- name: Install qemu-guest-agent in the cloud image
+  command: "virt-customize -a /tmp/{{ image_name }} --install qemu-guest-agent"
+
+- name: Create VM template
+  shell: |
+    qm create {{ tf_template_id }} --name "{{ image_name }}" --memory {{ tf_template_ram }} --cores {{ tf_template_cpus }} --net0 {{ tf_template_network }}
+    qm importdisk {{ tf_template_id }} {{ image_name }} local-lvm
+    qm set {{ tf_template_id }} --scsihw virtio-scsi-pci --scsi0 {{ tf_template_storage }}:vm-{{ tf_template_id }}-disk-0
+    qm set {{ tf_template_id }} --boot c --bootdisk scsi0
+    qm set {{ tf_template_id }} --ide2 {{ tf_template_storage }}:cloudinit
+    qm set {{ tf_template_id }} --serial0 socket --vga serial0
+    qm set {{ tf_template_id }} --agent enabled=1
+    qm template {{ tf_template_id }}
+  register: create_vm_template
+  changed_when: "'already exists on node' not in create_vm_template.stderr"
+  failed_when: "'already exists on node' not in create_vm_template.stderr"
+
+- name: Create terraform_role
+  command: pveum role add terraform_role -privs "Datastore.AllocateSpace Datastore.Audit Pool.Allocate Sys.Audit Sys.Console Sys.Modify VM.Allocate VM.Audit VM.Clone VM.Config.CDROM VM.Config.Cloudinit VM.Config.CPU VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options VM.Migrate VM.Monitor VM.PowerMgmt SDN.Use"
+  register: create_terraform_role
+  changed_when: "'already exists' not in create_terraform_role.stderr"
+  failed_when: "'already exists' not in create_terraform_role.stderr"
+
+- name: Create terraform user
+  command: "pveum user add {{ tf_proxmox_user }}@pve --password {{ tf_proxmox_pass }}"
+  register: create_terraform_user
+  changed_when: "'already exists' not in create_terraform_user.stderr"
+  failed_when: "'already exists' not in create_terraform_user.stderr"
+
+- name: Link terraform user and role
+  command: "pveum aclmod / -user {{ tf_proxmox_user }}@pve -role terraform_role"
